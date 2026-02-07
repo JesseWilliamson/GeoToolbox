@@ -13,7 +13,6 @@ import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -24,6 +23,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,8 +31,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.myapplication.ui.theme.MyApplicationTheme
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.rememberCameraPositionState
 
 class MainActivity : ComponentActivity() {
 
@@ -97,73 +103,94 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@Preview
 @Composable
 fun GpsSpooferScreen(
     modifier: Modifier = Modifier,
-    onStart: (Double, Double) -> Unit,
-    onStop: () -> Unit,
-    isSpoofing: Boolean
+    onStart: (Double, Double) -> Unit = { _, _ -> },
+    onStop: () -> Unit = {},
+    isSpoofing: Boolean = false
 ) {
     var latText by remember { mutableStateOf("0") }
     var lonText by remember { mutableStateOf("0") }
     val context = LocalContext.current
 
+    val currentLat = latText.toDoubleOrNull() ?: 0.0
+    val currentLon = lonText.toDoubleOrNull() ?: 0.0
+    val currentLocation = LatLng(currentLat, currentLon)
+
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(currentLocation, 15f)
+    }
+
+    LaunchedEffect(latText, lonText) {
+        val lat = latText.toDoubleOrNull()
+        val lon = lonText.toDoubleOrNull()
+        if (lat != null && lon != null) {
+            cameraPositionState.animate(
+                CameraUpdateFactory.newLatLngZoom(LatLng(lat, lon), cameraPositionState.position.zoom)
+            )
+        }
+    }
+
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = modifier.fillMaxSize()
     ) {
-        Text("Mock GPS", style = MaterialTheme.typography.headlineLarge)
-
-        OutlinedTextField(
-            value = latText,
-            onValueChange = { latText = it },
-            label = { Text("Latitude") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-        OutlinedTextField(
-            value = lonText,
-            onValueChange = { lonText = it },
-            label = { Text("Longitude") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Button(
-                onClick = {
-                    val lat = latText.toDoubleOrNull()
-                    val lon = lonText.toDoubleOrNull()
-                    when {
-                        lat == null || lon == null ->
-                            Toast.makeText(context, "Enter valid numbers", Toast.LENGTH_SHORT).show()
-                        lat !in -90.0..90.0 || lon !in -180.0..180.0 ->
-                            Toast.makeText(context, "Invalid coordinates", Toast.LENGTH_SHORT).show()
-                        else -> onStart(lat, lon)
-                    }
-                },
-                modifier = Modifier.weight(1f),
-                enabled = !isSpoofing
-            ) { Text("Start") }
-            Button(
-                onClick = onStop,
-                modifier = Modifier.weight(1f),
-                enabled = isSpoofing,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-            ) { Text("Stop") }
+            OutlinedTextField(
+                value = latText,
+                onValueChange = { latText = it },
+                label = { Text("Latitude") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            OutlinedTextField(
+                value = lonText,
+                onValueChange = { lonText = it },
+                label = { Text("Longitude") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = {
+                        val lat = latText.toDoubleOrNull()
+                        val lon = lonText.toDoubleOrNull()
+                        when {
+                            lat == null || lon == null ->
+                                Toast.makeText(context, "Enter valid numbers", Toast.LENGTH_SHORT).show()
+                            lat !in -90.0..90.0 || lon !in -180.0..180.0 ->
+                                Toast.makeText(context, "Invalid coordinates", Toast.LENGTH_SHORT).show()
+                            else -> onStart(lat, lon)
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isSpoofing
+                ) { Text("Start") }
+                Button(
+                    onClick = onStop,
+                    modifier = Modifier.weight(1f),
+                    enabled = isSpoofing,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text("Stop") }
+            }
         }
 
-        Spacer(Modifier.weight(1f))
-        Text(
-            "Developer Options → Select mock location app → this app",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+        GoogleMap(
+            modifier = Modifier
+                .fillMaxSize()
+                .weight(1f),
+            cameraPositionState = cameraPositionState
         )
     }
 }
