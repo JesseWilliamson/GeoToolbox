@@ -190,7 +190,11 @@ fun GpsSpooferScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .weight(1f),
-            cameraPositionState = cameraPositionState
+            cameraPositionState = cameraPositionState,
+            onMapClick = {
+                latText = it.latitude.toString()
+                lonText = it.longitude.toString()
+            }
         )
     }
 }
