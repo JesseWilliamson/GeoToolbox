@@ -76,6 +76,7 @@ import com.example.myapplication.ui.theme.MyApplicationTheme
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
@@ -116,10 +117,17 @@ class MainActivity : ComponentActivity() {
                         routeFollowingLocationState = routeFollowingLocationState,
                         isFollowingRouteState = isFollowingRouteState,
                         followedRouteWaypoints = followedRouteWaypointsState.value,
+                        selectedRouteForPreview = selectedRouteForPreviewState.value,
                         followSpeedMps = followSpeedMpsState.value,
                         onFollowSpeedChange = { followSpeedMpsState.value = it },
                         onFollowRoute = { startFollowingRoute(it) },
                         onStopRoute = { stopFollowingRoute() },
+                        onPreviewRoute = { previewRoute(it) },
+                        routeProgress = routeProgressState.value,
+                        isRoutePaused = isRoutePausedState.value,
+                        onPauseRoute = { pauseRoute() },
+                        onResumeRoute = { resumeRoute() },
+                        onSeekRoute = { seekRouteTo(it) },
                     )
                 }
             }
@@ -154,6 +162,8 @@ class MainActivity : ComponentActivity() {
         followedRouteWaypointsState.value = points
         routeFollowingLocationState.value = Pair(points[0].latitude, points[0].longitude)
         isFollowingRouteState.value = true
+        isRoutePausedState.value = false
+        routeProgressState.value = 0f
         routeRunner = RouteRunner(
             waypoints = points,
             speedProvider = { followSpeedMpsState.value },
@@ -161,7 +171,8 @@ class MainActivity : ComponentActivity() {
                 spoofer.setLocation(lat, lon)
                 routeFollowingLocationState.value = Pair(lat, lon)
             },
-            onComplete = { stopFollowingRoute() }
+            onComplete = { stopFollowingRoute() },
+            onProgress = { routeProgressState.value = it }
         )
         routeRunner?.start()
     }
@@ -173,6 +184,30 @@ class MainActivity : ComponentActivity() {
         followedRouteWaypointsState.value = null
         routeFollowingLocationState.value = null
         isFollowingRouteState.value = false
+        routeProgressState.value = 0f
+    }
+
+    private val selectedRouteForPreviewState = mutableStateOf<Route?>(null)
+    private val routeProgressState = mutableStateOf(0f)
+    private val isRoutePausedState = mutableStateOf(false)
+
+    private fun previewRoute(route: Route) {
+        selectedRouteForPreviewState.value = route
+    }
+
+    private fun pauseRoute() {
+        routeRunner?.pause()
+        isRoutePausedState.value = true
+    }
+
+    private fun resumeRoute() {
+        routeRunner?.resume()
+        isRoutePausedState.value = false
+    }
+
+    private fun seekRouteTo(fraction: Float) {
+        routeRunner?.seekToFraction(fraction)
+        routeProgressState.value = fraction
     }
 
     override fun onDestroy() {
@@ -470,10 +505,17 @@ fun GpsSpooferScreen(
     routeFollowingLocationState: State<Pair<Double, Double>?>? = null,
     isFollowingRouteState: State<Boolean>? = null,
     followedRouteWaypoints: List<RouteWaypoint>? = null,
+    selectedRouteForPreview: Route? = null,
     followSpeedMps: Double = 25.0,
     onFollowSpeedChange: (Double) -> Unit = {},
     onFollowRoute: (Route) -> Unit = {},
     onStopRoute: () -> Unit = {},
+    onPreviewRoute: (Route) -> Unit = {},
+    routeProgress: Float = 0f,
+    isRoutePaused: Boolean = false,
+    onPauseRoute: () -> Unit = {},
+    onResumeRoute: () -> Unit = {},
+    onSeekRoute: (Float) -> Unit = {},
 ) {
     var latText by remember { mutableStateOf("0") }
     var lonText by remember { mutableStateOf("0") }
@@ -523,6 +565,17 @@ fun GpsSpooferScreen(
             cameraPositionState.move(update)
         } else {
             cameraPositionState.animate(update)
+        }
+    }
+
+    LaunchedEffect(selectedRouteForPreview) {
+        val route = selectedRouteForPreview ?: return@LaunchedEffect
+        if (isFollowingRoute) return@LaunchedEffect
+        val points = route.waypoints
+        if (points.size >= 2) {
+            val builder = LatLngBounds.builder()
+            points.forEach { builder.include(LatLng(it.latitude, it.longitude)) }
+            cameraPositionState.move(CameraUpdateFactory.newLatLngBounds(builder.build(), 80))
         }
     }
 
@@ -626,6 +679,12 @@ fun GpsSpooferScreen(
                         isFollowingRoute = isFollowingRoute,
                         followSpeedMps = followSpeedMps,
                         onFollowSpeedChange = onFollowSpeedChange,
+                        onPreviewRoute = onPreviewRoute,
+                        routeProgress = routeProgress,
+                        isRoutePaused = isRoutePaused,
+                        onPauseRoute = onPauseRoute,
+                        onResumeRoute = onResumeRoute,
+                        onSeekRoute = onSeekRoute,
                         onAddRoute = { showAddRouteDialog = true },
                         onEditRoute = { editRoute = it },
                         onFollowRoute = onFollowRoute,
@@ -674,6 +733,13 @@ fun GpsSpooferScreen(
                         )
                     }
                 }
+                if (selectedRouteForPreview != null && selectedRouteForPreview.waypoints.size >= 2) {
+                    Polyline(
+                        points = selectedRouteForPreview.waypoints.map { LatLng(it.latitude, it.longitude) },
+                        color = Color(0xFF757575),
+                        width = 10f
+                    )
+                }
                 if (followedRouteWaypoints != null && followedRouteWaypoints.size >= 2) {
                     Polyline(
                         points = followedRouteWaypoints.map { LatLng(it.latitude, it.longitude) },
@@ -711,6 +777,12 @@ fun RoutesContent(
     isFollowingRoute: Boolean,
     followSpeedMps: Double,
     onFollowSpeedChange: (Double) -> Unit,
+    onPreviewRoute: (Route) -> Unit = {},
+    routeProgress: Float = 0f,
+    isRoutePaused: Boolean = false,
+    onPauseRoute: () -> Unit = {},
+    onResumeRoute: () -> Unit = {},
+    onSeekRoute: (Float) -> Unit = {},
     onAddRoute: () -> Unit,
     onEditRoute: (Route) -> Unit,
     onFollowRoute: (Route) -> Unit,
@@ -750,12 +822,14 @@ fun RoutesContent(
             )
         }
         if (isFollowingRoute) {
-            Button(
-                onClick = onStopRoute,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-            ) {
-                Text("Stop following")
-            }
+            RoutePlayerControls(
+                isPaused = isRoutePaused,
+                onPause = onPauseRoute,
+                onResume = onResumeRoute,
+                progress = routeProgress,
+                onSeek = onSeekRoute,
+                onStop = onStopRoute
+            )
         }
         if (routes.isEmpty()) {
             Text(
@@ -767,6 +841,7 @@ fun RoutesContent(
             routes.forEach { route ->
                 RouteCard(
                     route = route,
+                    onPreview = { onPreviewRoute(route) },
                     onEdit = { onEditRoute(route) },
                     onFollow = { onFollowRoute(route) },
                     onDelete = { onDeleteRoute(route) },
@@ -777,10 +852,63 @@ fun RoutesContent(
     }
 }
 
+@Composable
+fun RoutePlayerControls(
+    isPaused: Boolean,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+    progress: Float,
+    onSeek: (Float) -> Unit,
+    onStop: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text("Route player", style = MaterialTheme.typography.titleSmall)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = if (isPaused) onResume else onPause,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Text(if (isPaused) "Resume" else "Pause")
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Slider(
+                    value = progress,
+                    onValueChange = onSeek,
+                    valueRange = 0f..1f,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    "%.0f%%".format(progress * 100),
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+        }
+        Button(
+            onClick = onStop,
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Stop")
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RouteCard(
     route: Route,
+    onPreview: () -> Unit = {},
     onEdit: () -> Unit,
     onFollow: () -> Unit,
     onDelete: () -> Unit,
@@ -797,7 +925,11 @@ fun RouteCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(onClick = onPreview)
+            ) {
                 Text(route.name, style = MaterialTheme.typography.titleSmall)
                 Text(
                     "${route.waypoints.size} waypoints",
