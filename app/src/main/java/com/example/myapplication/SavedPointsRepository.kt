@@ -1,6 +1,5 @@
 package com.example.myapplication
 
-import SavedPoint
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences

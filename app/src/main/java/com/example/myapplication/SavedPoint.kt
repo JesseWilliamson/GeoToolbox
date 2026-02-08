@@ -1,3 +1,5 @@
+package com.example.myapplication
+
 data class SavedPoint(
     val id: String,
     val name: String,
