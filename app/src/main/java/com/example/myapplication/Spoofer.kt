@@ -62,6 +62,16 @@ class Spoofer(context: Context) {
     }
 
     /**
+     * Updates the spoofed location. Only has effect when [isSpoofing] is true.
+     */
+    fun setLocation(lat: Double, lon: Double) {
+        if (isSpoofing) {
+            spoofLat = lat
+            spoofLon = lon
+        }
+    }
+
+    /**
      * Stops spoofing and removes the test provider.
      */
     fun stopSpoofing() {
