@@ -243,7 +243,7 @@ fun SavedPointCard(
                 .clip(MaterialTheme.shapes.extraLarge)
                 .clickable { onPointClick(point) }
         ) {
-            val url = staticMapUrl(point.latitude, point.longitude)
+            val url = staticMapUrl(point.latitude, point.longitude, point.zoom.toInt().coerceIn(1, 22))
             AsyncImage(
                 model = url,
                 contentDescription = point.name,
@@ -313,16 +313,19 @@ fun AddEditPointDialog(
     point: SavedPoint?,
     currentLat: Double,
     currentLon: Double,
+    currentZoom: Float,
     onDismiss: () -> Unit,
-    onSave: (id: String?, name: String, lat: Double, lon: Double) -> Unit,
+    onSave: (id: String?, name: String, lat: Double, lon: Double, zoom: Float) -> Unit,
 ) {
     var name by remember { mutableStateOf(point?.name ?: "") }
     var latText by remember { mutableStateOf((point?.latitude ?: currentLat).toString()) }
     var lonText by remember { mutableStateOf((point?.longitude ?: currentLon).toString()) }
+    var zoomText by remember { mutableStateOf((point?.zoom ?: currentZoom).toString()) }
     LaunchedEffect(point) {
         name = point?.name ?: ""
         latText = (point?.latitude ?: currentLat).toString()
         lonText = (point?.longitude ?: currentLon).toString()
+        zoomText = (point?.zoom ?: currentZoom).toString()
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -347,6 +350,12 @@ fun AddEditPointDialog(
                     label = { Text("Longitude") },
                     modifier = Modifier.fillMaxWidth()
                 )
+                OutlinedTextField(
+                    value = zoomText,
+                    onValueChange = { zoomText = it },
+                    label = { Text("Zoom (2–22)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
@@ -354,8 +363,9 @@ fun AddEditPointDialog(
                 onClick = {
                     val lat = latText.toDoubleOrNull()
                     val lon = lonText.toDoubleOrNull()
+                    val zoom = zoomText.toFloatOrNull()?.coerceIn(2f, 22f) ?: 15f
                     if (name.isNotBlank() && lat != null && lon != null) {
-                        onSave(point?.id, name.trim(), lat, lon)
+                        onSave(point?.id, name.trim(), lat, lon, zoom)
                         onDismiss()
                     }
                 }
@@ -480,6 +490,7 @@ fun GpsSpooferScreen(
     var addEditPoint: SavedPoint? by remember { mutableStateOf(null) }
     var deletePoint: SavedPoint? by remember { mutableStateOf(null) }
     var showAddDialog by remember { mutableStateOf(false) }
+    var targetZoom by remember { mutableStateOf<Float?>(null) }
     var selectedTab by remember { mutableStateOf(0) } // 0 = Locations, 1 = Routes
     var showAddRouteDialog by remember { mutableStateOf(false) }
     var editRoute: Route? by remember { mutableStateOf(null) }
@@ -505,7 +516,9 @@ fun GpsSpooferScreen(
     }
 
     LaunchedEffect(effectiveLat, effectiveLon) {
-        val update = CameraUpdateFactory.newLatLngZoom(LatLng(effectiveLat, effectiveLon), cameraPositionState.position.zoom)
+        val zoom = targetZoom ?: cameraPositionState.position.zoom
+        if (targetZoom != null) targetZoom = null
+        val update = CameraUpdateFactory.newLatLngZoom(LatLng(effectiveLat, effectiveLon), zoom)
         if (isFollowingRoute) {
             cameraPositionState.move(update)
         } else {
@@ -518,9 +531,10 @@ fun GpsSpooferScreen(
             point = null,
             currentLat = currentLat,
             currentLon = currentLon,
+            currentZoom = cameraPositionState.position.zoom,
             onDismiss = { showAddDialog = false },
-            onSave = { _, name, lat, lon ->
-                scope.launch { repository.add(name, lat, lon) }
+            onSave = { _, name, lat, lon, zoom ->
+                scope.launch { repository.add(name, lat, lon, zoom) }
             }
         )
     }
@@ -529,11 +543,12 @@ fun GpsSpooferScreen(
             point = point,
             currentLat = currentLat,
             currentLon = currentLon,
+            currentZoom = cameraPositionState.position.zoom,
             onDismiss = { addEditPoint = null },
-            onSave = { id, name, lat, lon ->
+            onSave = { id, name, lat, lon, zoom ->
                 if (id != null) {
                     scope.launch {
-                        repository.update(point.copy(name = name, latitude = lat, longitude = lon))
+                        repository.update(point.copy(name = name, latitude = lat, longitude = lon, zoom = zoom))
                     }
                 }
                 addEditPoint = null
@@ -600,6 +615,7 @@ fun GpsSpooferScreen(
                         onPointClick = { point ->
                             latText = point.latitude.toString()
                             lonText = point.longitude.toString()
+                            targetZoom = point.zoom.coerceIn(2f, 22f)
                         },
                         onEdit = { addEditPoint = it },
                         onDelete = { deletePoint = it }

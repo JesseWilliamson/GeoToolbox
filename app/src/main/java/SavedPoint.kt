@@ -3,4 +3,5 @@ data class SavedPoint(
     val name: String,
     val latitude: Double,
     val longitude: Double,
+    val zoom: Float = 15f,
 )

@@ -23,7 +23,8 @@ class SavedPointsRepository(private val context: Context) {
 
     val savedPoints: Flow<List<SavedPoint>> = context.dataStore.data.map { prefs ->
         val json = prefs[key] ?: "[]"
-        runCatching { gson.fromJson<List<SavedPoint>>(json, type) }.getOrElse { emptyList() }
+        val list = runCatching { gson.fromJson<List<SavedPoint>>(json, type) }.getOrElse { emptyList() }
+        list.map { p -> if (p.zoom !in 1f..22f) p.copy(zoom = 15f) else p }
     }
 
     suspend fun add(point: SavedPoint) {
@@ -35,8 +36,8 @@ class SavedPointsRepository(private val context: Context) {
         }
     }
 
-    suspend fun add(name: String, latitude: Double, longitude: Double) {
-        add(SavedPoint(id = UUID.randomUUID().toString(), name = name, latitude = latitude, longitude = longitude))
+    suspend fun add(name: String, latitude: Double, longitude: Double, zoom: Float = 15f) {
+        add(SavedPoint(id = UUID.randomUUID().toString(), name = name, latitude = latitude, longitude = longitude, zoom = zoom))
     }
 
     suspend fun update(point: SavedPoint) {
