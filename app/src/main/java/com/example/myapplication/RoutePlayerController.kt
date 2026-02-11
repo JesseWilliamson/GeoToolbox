@@ -1,18 +1,23 @@
 package com.example.myapplication
 
-import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
 /**
  * Owns all mutable state for route playback (follow, pause, seek, preview).
- * Created once by MainActivity; passed to composables as a single object.
+ * Created once by MainViewModel; passed to composables as a single object.
  */
 class RoutePlayerController(
     private val spoofer: Spoofer,
     private val toastProvider: (String) -> Unit,
 ) {
+    companion object {
+        const val MIN_SPEED_MPS = 2.0
+        const val MAX_SPEED_MPS = 80.0
+        const val DEFAULT_SPEED_MPS = 25.0
+    }
+
     /* Observable state ------------------------------------------------------ */
 
     var followingLocation by mutableStateOf<Pair<Double, Double>?>(null)
@@ -27,7 +32,7 @@ class RoutePlayerController(
     var previewRoute by mutableStateOf<Route?>(null)
         private set
 
-    var speedMps by mutableStateOf(25.0)
+    var speedMps by mutableStateOf(DEFAULT_SPEED_MPS)
 
     var progress by mutableStateOf(0f)
         private set

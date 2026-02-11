@@ -84,7 +84,7 @@ private fun SpeedSlider(player: RoutePlayerController) {
         Slider(
             value = player.speedMps.toFloat(),
             onValueChange = { player.speedMps = it.toDouble() },
-            valueRange = 2f..80f,
+            valueRange = RoutePlayerController.MIN_SPEED_MPS.toFloat()..RoutePlayerController.MAX_SPEED_MPS.toFloat(),
             modifier = Modifier.fillMaxWidth(),
         )
     }

@@ -35,7 +35,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.myapplication.ui.components.AddEditPointDialog
 import com.example.myapplication.ui.components.AddRouteDialog
 import com.example.myapplication.ui.components.DeleteConfirmDialog
@@ -61,16 +61,12 @@ import com.google.android.gms.maps.model.LatLngBounds
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.rememberCameraPositionState
 import java.util.UUID
-import kotlinx.coroutines.launch
 
 /* ══════════════════════════════════════════════════════════════════════════
    Activity
    ══════════════════════════════════════════════════════════════════════════ */
 
 class MainActivity : ComponentActivity() {
-
-    private lateinit var spoofer: Spoofer
-    private lateinit var player: RoutePlayerController
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -82,15 +78,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        spoofer = Spoofer(this)
-        player = RoutePlayerController(spoofer) { msg ->
-            Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
-        }
 
         setContent {
             MyApplicationTheme {
                 Scaffold(Modifier.fillMaxSize()) { padding ->
-                    GpsSpooferScreen(Modifier.padding(padding), player)
+                    GpsSpooferScreen(Modifier.padding(padding))
                 }
             }
         }
@@ -106,11 +98,6 @@ class MainActivity : ComponentActivity() {
         try { startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)) } catch (_: Exception) {}
         Toast.makeText(this, "Developer Options → set this app as \"Mock location app\"", Toast.LENGTH_LONG).show()
     }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        player.cleanup()
-    }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -119,13 +106,18 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GpsSpooferScreen(modifier: Modifier = Modifier, player: RoutePlayerController) {
+fun GpsSpooferScreen(modifier: Modifier = Modifier, vm: MainViewModel = viewModel()) {
     val context = LocalContext.current
-    val pointsRepo = remember { SavedPointsRepository(context) }
-    val routesRepo = remember { RoutesRepository(context) }
-    val savedPoints by pointsRepo.savedPoints.collectAsState(initial = emptyList())
-    val routes by routesRepo.routes.collectAsState(initial = emptyList())
-    val scope = rememberCoroutineScope()
+    val player = vm.player
+    val savedPoints by vm.savedPoints.collectAsState(initial = emptyList())
+    val routes by vm.routes.collectAsState(initial = emptyList())
+
+    // Observe toast messages from ViewModel
+    LaunchedEffect(Unit) {
+        vm.toastMessages.collect { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+        }
+    }
 
     // Coordinate state
     var latText by remember { mutableStateOf("0") }
@@ -181,22 +173,24 @@ fun GpsSpooferScreen(modifier: Modifier = Modifier, player: RoutePlayerControlle
 
     if (showAddDialog) {
         AddEditPointDialog(null, currentLat, currentLon, cameraState.position.zoom, onDismiss = { showAddDialog = false }) { _, name, lat, lon, zoom ->
-            scope.launch { pointsRepo.add(name, lat, lon, zoom) }
+            vm.addPoint(name, lat, lon, zoom)
         }
     }
     addEditPoint?.let { point ->
         AddEditPointDialog(point, currentLat, currentLon, cameraState.position.zoom, onDismiss = { addEditPoint = null }) { id, name, lat, lon, zoom ->
-            if (id != null) scope.launch { pointsRepo.update(point.copy(name = name, latitude = lat, longitude = lon, zoom = zoom)) }
+            if (id != null) vm.updatePoint(point.copy(name = name, latitude = lat, longitude = lon, zoom = zoom))
             addEditPoint = null
         }
     }
     deletePoint?.let { point ->
-        DeleteConfirmDialog(point, onDismiss = { deletePoint = null }) { scope.launch { pointsRepo.delete(point.id) } }
+        DeleteConfirmDialog(point, onDismiss = { deletePoint = null }) { vm.deletePoint(point.id) }
     }
     if (showAddRouteDialog) {
         AddRouteDialog(onDismiss = { showAddRouteDialog = false }) { name ->
             val route = Route(UUID.randomUUID().toString(), name, emptyList())
-            scope.launch { routesRepo.add(route); editRoute = route; showAddRouteDialog = false }
+            vm.addRoute(route)
+            editRoute = route
+            showAddRouteDialog = false
         }
     }
 
@@ -226,7 +220,7 @@ fun GpsSpooferScreen(modifier: Modifier = Modifier, player: RoutePlayerControlle
                         targetZoom = pt.zoom.coerceIn(2f, 22f)
                     }, onEdit = { addEditPoint = it }, onDelete = { deletePoint = it })
                 } else {
-                    RoutesSection(routes, player, onAddRoute = { showAddRouteDialog = true }, onEditRoute = { editRoute = it }, onDeleteRoute = { scope.launch { routesRepo.delete(it.id) } })
+                    RoutesSection(routes, player, onAddRoute = { showAddRouteDialog = true }, onEditRoute = { editRoute = it }, onDeleteRoute = { vm.deleteRoute(it.id) })
                 }
             }
         },
@@ -269,7 +263,8 @@ fun GpsSpooferScreen(modifier: Modifier = Modifier, player: RoutePlayerControlle
                     nodeCount = editingNodes.size,
                     onSave = {
                         val updated = editRoute!!.copy(waypoints = editingNodes.map { RouteWaypoint(it.latitude, it.longitude) })
-                        scope.launch { routesRepo.update(updated); editRoute = null }
+                        vm.updateRoute(updated)
+                        editRoute = null
                     },
                     onCancel = { editRoute = null },
                 )

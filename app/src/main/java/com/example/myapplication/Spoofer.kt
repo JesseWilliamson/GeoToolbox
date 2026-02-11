@@ -7,14 +7,20 @@ import android.location.provider.ProviderProperties
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 
+private const val TAG = "Spoofer"
 private const val GPS_PROVIDER = "gps"
+
+/** Interval between mock location updates in milliseconds. */
 private const val MOCK_UPDATE_MS = 200L
+
+/** Stop spoofing after this many consecutive mock-update failures. */
+private const val MAX_CONSECUTIVE_ERRORS = 5
 
 /**
  * Handles GPS location mocking by overriding the system "gps" provider.
  * Requires the app to be set as "Mock location app" in Developer Options.
- * TODO: Allow overriding different providers
  */
 class Spoofer(context: Context) {
 
@@ -22,6 +28,10 @@ class Spoofer(context: Context) {
     private val handler = Handler(Looper.getMainLooper())
     private var spoofLat = 0.0
     private var spoofLon = 0.0
+    private var consecutiveErrors = 0
+
+    /** Optional callback invoked when an error occurs during spoofing. */
+    var onError: ((String) -> Unit)? = null
 
     private val mockUpdater = object : Runnable {
         override fun run() {
@@ -29,7 +39,17 @@ class Spoofer(context: Context) {
             try {
                 val loc = newLocation(spoofLat, spoofLon)
                 locationManager.setTestProviderLocation(GPS_PROVIDER, loc)
-            } catch (_: Exception) {}
+                consecutiveErrors = 0
+            } catch (e: Exception) {
+                Log.w(TAG, "Mock location update failed", e)
+                consecutiveErrors++
+                if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+                    Log.e(TAG, "Too many consecutive mock failures, stopping")
+                    onError?.invoke("Mock location updates keep failing. Is the app still set as Mock location provider?")
+                    stopSpoofing()
+                    return
+                }
+            }
             handler.postDelayed(this, MOCK_UPDATE_MS)
         }
     }
@@ -52,11 +72,14 @@ class Spoofer(context: Context) {
             spoofLon = lon
             locationManager.setTestProviderLocation(GPS_PROVIDER, newLocation(lat, lon))
             isSpoofing = true
+            consecutiveErrors = 0
             handler.post(mockUpdater)
             true
-        } catch (_: SecurityException) {
+        } catch (e: SecurityException) {
+            Log.w(TAG, "SecurityException starting spoofing — is the app set as Mock location app?", e)
             false
-        } catch (_: IllegalArgumentException) {
+        } catch (e: IllegalArgumentException) {
+            Log.w(TAG, "IllegalArgumentException starting spoofing", e)
             false
         }
     }
@@ -80,7 +103,9 @@ class Spoofer(context: Context) {
             if (locationManager.isProviderEnabled(GPS_PROVIDER)) {
                 locationManager.removeTestProvider(GPS_PROVIDER)
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to remove test provider during stop", e)
+        }
         isSpoofing = false
     }
 
@@ -89,7 +114,9 @@ class Spoofer(context: Context) {
             if (locationManager.isProviderEnabled(GPS_PROVIDER)) {
                 locationManager.removeTestProvider(GPS_PROVIDER)
             }
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to remove existing test provider", e)
+        }
     }
 
     private fun addTestProvider() {
@@ -124,7 +151,9 @@ class Spoofer(context: Context) {
                 null,
                 System.currentTimeMillis()
             )
-        } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to set provider available", e)
+        }
     }
 
     private fun newLocation(lat: Double, lon: Double): Location {
