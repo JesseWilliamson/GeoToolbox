@@ -44,6 +44,7 @@ import com.example.myapplication.ui.components.AddEditPointDialog
 import com.example.myapplication.ui.components.AddRouteDialog
 import com.example.myapplication.ui.components.DeleteConfirmDialog
 import com.example.myapplication.ui.components.EditingPolyline
+import com.example.myapplication.ui.components.FloatingPlayerOverlay
 import com.example.myapplication.ui.components.FollowingPolyline
 import com.example.myapplication.ui.components.LocationsSection
 import com.example.myapplication.ui.components.PreviewPolyline
@@ -192,7 +193,10 @@ fun GpsSpooferScreen(modifier: Modifier = Modifier, vm: GpsSpooferViewModel = vi
                 onMapClick = { latLng ->
                     if (vm.editRoute != null) {
                         vm.editingNodes = vm.editingNodes + RouteNode(UUID.randomUUID().toString(), latLng.latitude, latLng.longitude)
-                    } else {
+                    }
+                },
+                onMapLongClick = { latLng ->
+                    if (vm.editRoute == null) {
                         vm.latText = latLng.latitude.toString()
                         vm.lonText = latLng.longitude.toString()
                         vm.showAddDialog = true
@@ -224,6 +228,13 @@ fun GpsSpooferScreen(modifier: Modifier = Modifier, vm: GpsSpooferViewModel = vi
                     onCancel = { vm.editRoute = null },
                 )
             }
+
+            if (player.isFollowing) {
+                FloatingPlayerOverlay(
+                    player = player,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(start = 12.dp, end = 12.dp, bottom = 140.dp),
+                )
+            }
         }
     }
 }
@@ -241,7 +252,7 @@ private fun RouteEditOverlay(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(routeName, style = MaterialTheme.typography.titleMedium)
-        Text("Tap map to add points, drag nodes to move. $nodeCount point(s).", style = MaterialTheme.typography.bodySmall)
+        Text("Tap to add points, drag to move. $nodeCount point(s).", style = MaterialTheme.typography.bodySmall)
         Row(Modifier.fillMaxWidth(), Arrangement.End, Alignment.CenterVertically) {
             Button(onClick = onCancel) { Text("Cancel") }
             Spacer(Modifier.padding(8.dp))
