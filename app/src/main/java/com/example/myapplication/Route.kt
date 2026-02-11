@@ -5,7 +5,6 @@ data class RouteWaypoint(
     val longitude: Double,
 )
 
-/** Node with stable id for drag-and-drop in the route line editor. */
 data class RouteNode(
     val id: String,
     val latitude: Double,

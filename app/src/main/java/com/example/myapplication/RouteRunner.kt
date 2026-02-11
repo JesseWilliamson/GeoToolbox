@@ -8,12 +8,6 @@ import kotlin.math.sqrt
 private const val UPDATE_MS = 150L
 private const val METERS_PER_DEGREE_LAT = 111_320.0
 
-/**
- * Interpolates position along a path of waypoints and invokes callbacks.
- * Uses linear interpolation between consecutive waypoints.
- * @param speedProvider called each tick to get current speed in m/s (allows live slider updates)
- * @param onProgress 0f..1f, called each tick with progress along the route
- */
 class RouteRunner(
     private val waypoints: List<RouteWaypoint>,
     private val speedProvider: () -> Double,
