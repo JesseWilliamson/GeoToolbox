@@ -11,11 +11,6 @@ import android.os.Looper
 private const val GPS_PROVIDER = "gps"
 private const val MOCK_UPDATE_MS = 200L
 
-/**
- * Handles GPS location mocking by overriding the system "gps" provider.
- * Requires the app to be set as "Mock location app" in Developer Options.
- * TODO: Allow overriding different providers
- */
 class Spoofer(context: Context) {
 
     private val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
@@ -37,10 +32,6 @@ class Spoofer(context: Context) {
     var isSpoofing: Boolean = false
         private set
 
-    /**
-     * Starts spoofing GPS to the given coordinates. Overrides the "gps" provider.
-     * @return true if started successfully, false if not
-     */
     fun startSpoofing(lat: Double, lon: Double): Boolean {
         if (isSpoofing) stopSpoofing()
         return try {
@@ -61,9 +52,6 @@ class Spoofer(context: Context) {
         }
     }
 
-    /**
-     * Updates the spoofed location. Only has effect when [isSpoofing] is true.
-     */
     fun setLocation(lat: Double, lon: Double) {
         if (isSpoofing) {
             spoofLat = lat
@@ -71,9 +59,6 @@ class Spoofer(context: Context) {
         }
     }
 
-    /**
-     * Stops spoofing and removes the test provider.
-     */
     fun stopSpoofing() {
         handler.removeCallbacks(mockUpdater)
         try {

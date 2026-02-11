@@ -5,16 +5,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
-/**
- * Owns all mutable state for route playback (follow, pause, seek, preview).
- * Created once by MainActivity; passed to composables as a single object.
- */
 class RoutePlayerController(
     private val spoofer: Spoofer,
     private val toastProvider: (String) -> Unit,
 ) {
-    /* Observable state ------------------------------------------------------ */
-
     var followingLocation by mutableStateOf<Pair<Double, Double>?>(null)
         private set
 
@@ -36,8 +30,6 @@ class RoutePlayerController(
         private set
 
     private var routeRunner: RouteRunner? = null
-
-    /* Actions --------------------------------------------------------------- */
 
     fun preview(route: Route) {
         previewRoute = route

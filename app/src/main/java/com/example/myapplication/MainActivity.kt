@@ -60,10 +60,6 @@ import com.google.maps.android.compose.rememberCameraPositionState
 import java.util.UUID
 import kotlinx.coroutines.launch
 
-/* ══════════════════════════════════════════════════════════════════════════
-   Activity
-   ══════════════════════════════════════════════════════════════════════════ */
-
 class MainActivity : ComponentActivity() {
 
     private val permissionLauncher = registerForActivityResult(
@@ -98,10 +94,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/* ══════════════════════════════════════════════════════════════════════════
-   Main screen
-   ══════════════════════════════════════════════════════════════════════════ */
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GpsSpooferScreen(modifier: Modifier = Modifier, vm: GpsSpooferViewModel = viewModel()) {
@@ -110,14 +102,12 @@ fun GpsSpooferScreen(modifier: Modifier = Modifier, vm: GpsSpooferViewModel = vi
     val routes by vm.routesRepo.routes.collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
 
-    // Coordinate state
     val currentLat = vm.latText.toDoubleOrNull() ?: 0.0
     val currentLon = vm.lonText.toDoubleOrNull() ?: 0.0
     val followLoc = player.followingLocation
     val effectiveLat = followLoc?.first ?: currentLat
     val effectiveLon = followLoc?.second ?: currentLon
 
-    // Camera
     val cameraState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(LatLng(effectiveLat, effectiveLon), 15f)
     }
@@ -139,14 +129,11 @@ fun GpsSpooferScreen(modifier: Modifier = Modifier, vm: GpsSpooferViewModel = vi
         }
     }
 
-    // Sync editing nodes when editRoute changes
     LaunchedEffect(vm.editRoute) {
         vm.editingNodes = vm.editRoute?.waypoints?.mapIndexed { i, w ->
             RouteNode("n_$i", w.latitude, w.longitude)
         } ?: emptyList()
     }
-
-    /* ── Dialogs ─────────────────────────────────────────────────────── */
 
     if (vm.showAddDialog) {
         AddEditPointDialog(null, currentLat, currentLon, cameraState.position.zoom, onDismiss = { vm.showAddDialog = false }) { _, name, lat, lon, zoom ->
@@ -168,8 +155,6 @@ fun GpsSpooferScreen(modifier: Modifier = Modifier, vm: GpsSpooferViewModel = vi
             scope.launch { vm.routesRepo.add(route); vm.editRoute = route; vm.showAddRouteDialog = false }
         }
     }
-
-    /* ── Layout ──────────────────────────────────────────────────────── */
 
     val scaffoldState = rememberBottomSheetScaffoldState(
         bottomSheetState = rememberStandardBottomSheetState(
@@ -214,7 +199,6 @@ fun GpsSpooferScreen(modifier: Modifier = Modifier, vm: GpsSpooferViewModel = vi
                     }
                 },
             ) {
-                // Route editor polyline + draggable markers
                 if (vm.editRoute != null) {
                     EditingPolyline(vm.editingNodes)
                     vm.editingNodes.forEach { node ->
@@ -223,14 +207,11 @@ fun GpsSpooferScreen(modifier: Modifier = Modifier, vm: GpsSpooferViewModel = vi
                         }
                     }
                 }
-                // Route preview / follow polylines
                 PreviewPolyline(player.previewRoute)
                 FollowingPolyline(player.followedWaypoints)
-                // User location puck
                 UserLocationPuck(effectiveLat, effectiveLon)
             }
 
-            // Route editor top bar
             if (vm.editRoute != null) {
                 RouteEditOverlay(
                     modifier = Modifier.align(Alignment.TopCenter),
@@ -246,8 +227,6 @@ fun GpsSpooferScreen(modifier: Modifier = Modifier, vm: GpsSpooferViewModel = vi
         }
     }
 }
-
-/* ── Route edit overlay ───────────────────────────────────────────────── */
 
 @Composable
 private fun RouteEditOverlay(
