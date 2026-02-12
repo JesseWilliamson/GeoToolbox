@@ -50,6 +50,10 @@ jobs:
           key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: gradle-${{ runner.os }}-
 
+      - name: Create local.properties
+        if: steps.check.outputs.skip != 'true'
+        run: echo "sdk.dir=$ANDROID_HOME" > local.properties
+
       - name: Generate screenshots
         if: steps.check.outputs.skip != 'true'
         run: ./gradlew :app:updateDebugScreenshotTest --no-daemon
