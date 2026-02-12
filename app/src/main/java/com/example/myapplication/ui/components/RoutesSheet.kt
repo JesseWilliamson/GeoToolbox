@@ -13,11 +13,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -54,14 +54,8 @@ fun RoutesSection(
             Button(onClick = onAddRoute, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)) { Text("Add route") }
         }
 
-        SpeedSlider(player)
-
-        if (player.isFollowing) {
-            PlayerControls(player)
-        }
-
         if (routes.isEmpty()) {
-            Text("Add a route, then edit it on the map. Tap Follow to simulate movement.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp))
+            Text("Create a route, then edit it on the map. Tap Follow to start.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 8.dp))
         } else {
             routes.forEach { route ->
                 RouteCard(
@@ -78,41 +72,34 @@ fun RoutesSection(
 }
 
 @Composable
-private fun SpeedSlider(player: RoutePlayerController) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("Speed: %.0f m/s (%.0f km/h)".format(player.speedMps, player.speedMps * 3.6), style = MaterialTheme.typography.labelMedium)
+fun FloatingPlayerOverlay(player: RoutePlayerController, modifier: Modifier = Modifier) {
+    Column(
+        modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.surface).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+            Text("%.0f km/h".format(player.speedMps * 3.6), style = MaterialTheme.typography.titleMedium)
+            IconButton(onClick = player::stop) {
+                Icon(Icons.Default.Close, "Stop")
+            }
+        }
         Slider(
             value = player.speedMps.toFloat(),
             onValueChange = { player.speedMps = it.toDouble() },
             valueRange = 2f..80f,
             modifier = Modifier.fillMaxWidth(),
         )
-    }
-}
-
-@Composable
-private fun PlayerControls(player: RoutePlayerController) {
-    Column(
-        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
-            .background(MaterialTheme.colorScheme.surfaceVariant).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text("Route player", style = MaterialTheme.typography.titleSmall)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
                 onClick = if (player.isPaused) player::resume else player::pause,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             ) { Text(if (player.isPaused) "Resume" else "Pause") }
             Column(Modifier.weight(1f)) {
                 Slider(player.progress, onValueChange = player::seek, valueRange = 0f..1f, modifier = Modifier.fillMaxWidth())
-                Text("%.0f%%".format(player.progress * 100), style = MaterialTheme.typography.labelSmall)
             }
+            Text("%.0f%%".format(player.progress * 100), style = MaterialTheme.typography.labelSmall)
         }
-        Button(
-            onClick = player::stop,
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Stop") }
     }
 }
 

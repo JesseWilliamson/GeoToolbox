@@ -48,7 +48,7 @@ fun LocationsSection(
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Saved locations", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp))
         if (items.isEmpty()) {
-            Text("Tap the map to save a location.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp))
+            Text("Long press on the map to drop a pin.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp))
         } else {
             LazyRow(
                 Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp),

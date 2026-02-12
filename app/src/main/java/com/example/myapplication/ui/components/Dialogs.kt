@@ -38,15 +38,19 @@ fun AddEditPointDialog(
         zoomText = (point?.zoom ?: currentZoom).toString()
     }
 
+    val isNew = point == null
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (point == null) "Save location" else "Edit location") },
+        title = { Text(if (isNew) "Save location" else "Edit location") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(name, { name = it }, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(latText, { latText = it }, label = { Text("Latitude") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(lonText, { lonText = it }, label = { Text("Longitude") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(zoomText, { zoomText = it }, label = { Text("Zoom (2–22)") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                if (!isNew) {
+                    OutlinedTextField(latText, { latText = it }, label = { Text("Latitude") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(lonText, { lonText = it }, label = { Text("Longitude") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(zoomText, { zoomText = it }, label = { Text("Zoom (2–22)") }, modifier = Modifier.fillMaxWidth())
+                }
             }
         },
         confirmButton = {
