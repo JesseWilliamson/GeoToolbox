@@ -54,7 +54,7 @@ jobs:
         if: steps.check.outputs.skip != 'true'
         run: |
           echo "sdk.dir=$ANDROID_HOME" > local.properties
-          echo "MAPS_API_KEY=" >> local.properties
+          echo "MAPS_API_KEY=DUMMY_CI_KEY" >> local.properties
 
       - name: Generate screenshots
         if: steps.check.outputs.skip != 'true'
