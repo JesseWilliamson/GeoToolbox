@@ -10,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,13 +20,26 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.EditLocationAlt
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.rememberStandardBottomSheetState
@@ -36,7 +50,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -136,6 +152,7 @@ fun GpsSpooferScreen(modifier: Modifier = Modifier, vm: GpsSpooferViewModel = vi
         } ?: emptyList()
     }
 
+    // Dialogs
     if (vm.showAddDialog) {
         AddEditPointDialog(null, currentLat, currentLon, cameraState.position.zoom, onDismiss = { vm.showAddDialog = false }) { _, name, lat, lon, zoom ->
             scope.launch { vm.pointsRepo.add(name, lat, lon, zoom) }
@@ -168,12 +185,26 @@ fun GpsSpooferScreen(modifier: Modifier = Modifier, vm: GpsSpooferViewModel = vi
         modifier = modifier,
         scaffoldState = scaffoldState,
         sheetPeekHeight = 128.dp,
+        sheetContainerColor = MaterialTheme.colorScheme.surface,
         sheetContent = {
-            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(vm.selectedTab == 0, onClick = { vm.selectedTab = 0 }, label = { Text("Locations") })
-                    FilterChip(vm.selectedTab == 1, onClick = { vm.selectedTab = 1 }, label = { Text("Routes") })
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                // Segmented button row for tab switching
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    SegmentedButton(
+                        selected = vm.selectedTab == 0,
+                        onClick = { vm.selectedTab = 0 },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                    ) { Text("Locations") }
+                    SegmentedButton(
+                        selected = vm.selectedTab == 1,
+                        onClick = { vm.selectedTab = 1 },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                    ) { Text("Routes") }
                 }
+
                 if (vm.selectedTab == 0) {
                     LocationsSection(savedPoints, onPointClick = { pt ->
                         vm.latText = pt.latitude.toString()
@@ -216,9 +247,10 @@ fun GpsSpooferScreen(modifier: Modifier = Modifier, vm: GpsSpooferViewModel = vi
                 UserLocationPuck(effectiveLat, effectiveLon)
             }
 
+            // Route editing toolbar
             if (vm.editRoute != null) {
                 RouteEditOverlay(
-                    modifier = Modifier.align(Alignment.TopCenter),
+                    modifier = Modifier.align(Alignment.TopCenter).padding(horizontal = 12.dp, vertical = 8.dp),
                     routeName = vm.editRoute!!.name,
                     nodeCount = vm.editingNodes.size,
                     onSave = {
@@ -229,6 +261,7 @@ fun GpsSpooferScreen(modifier: Modifier = Modifier, vm: GpsSpooferViewModel = vi
                 )
             }
 
+            // Floating player controls
             if (player.isFollowing) {
                 FloatingPlayerOverlay(
                     player = player,
@@ -247,16 +280,46 @@ private fun RouteEditOverlay(
     onSave: () -> Unit,
     onCancel: () -> Unit,
 ) {
-    Column(
-        modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
     ) {
-        Text(routeName, style = MaterialTheme.typography.titleMedium)
-        Text("Tap to add points, drag to move. $nodeCount point(s).", style = MaterialTheme.typography.bodySmall)
-        Row(Modifier.fillMaxWidth(), Arrangement.End, Alignment.CenterVertically) {
-            Button(onClick = onCancel) { Text("Cancel") }
-            Spacer(Modifier.padding(8.dp))
-            Button(onClick = onSave) { Text("Save") }
+        Column(
+            Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Outlined.EditLocationAlt,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Editing: $routeName", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "$nodeCount point${if (nodeCount != 1) "s" else ""} — tap map to add, drag to move",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Row(Modifier.fillMaxWidth(), Arrangement.End, Alignment.CenterVertically, ) {
+                OutlinedButton(onClick = onCancel) {
+                    Icon(Icons.Default.Close, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Discard")
+                }
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = onSave) {
+                    Icon(Icons.Default.Check, null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Save")
+                }
+            }
         }
     }
 }

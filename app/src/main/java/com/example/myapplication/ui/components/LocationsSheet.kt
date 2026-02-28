@@ -6,32 +6,31 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.myapplication.R
@@ -46,14 +45,39 @@ fun LocationsSection(
     onDelete: (SavedPoint) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Saved locations", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp))
+        Text(
+            "Saved locations",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
         if (items.isEmpty()) {
-            Text("Long press on the map to drop a pin.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp))
+            Column(
+                Modifier.fillMaxWidth().padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(
+                    Icons.Outlined.LocationOn,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .5f),
+                )
+                Text(
+                    "No saved locations yet",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    "Long-press anywhere on the map to drop a pin",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = .7f),
+                )
+            }
         } else {
             LazyRow(
-                Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(horizontal = 16.dp)
+                Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
             ) {
                 items(items, key = { it.id }) { item ->
                     SavedPointCard(item, onPointClick, onEdit, onDelete)
@@ -70,35 +94,55 @@ private fun SavedPointCard(
     onEdit: (SavedPoint) -> Unit,
     onDelete: (SavedPoint) -> Unit,
 ) {
-    var showMenu by remember { mutableStateOf(false) }
-    Box {
-        Column(
-            Modifier.width(186.dp).height(205.dp)
-                .clip(MaterialTheme.shapes.extraLarge)
-                .clickable { onPointClick(point) }
-        ) {
-            AsyncImage(
-                model = staticMapUrl(point.latitude, point.longitude, point.zoom.toInt().coerceIn(1, 22)),
-                contentDescription = point.name,
-                modifier = Modifier.fillMaxWidth().height(160.dp),
-                contentScale = ContentScale.Crop,
-                placeholder = painterResource(R.drawable.ic_launcher_foreground),
-                error = painterResource(R.drawable.ic_launcher_foreground),
+    Card(
+        modifier = Modifier.width(200.dp),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        onClick = { onPointClick(point) },
+    ) {
+        AsyncImage(
+            model = staticMapUrl(point.latitude, point.longitude, point.zoom.toInt().coerceIn(1, 22)),
+            contentDescription = point.name,
+            modifier = Modifier.fillMaxWidth().height(120.dp),
+            contentScale = ContentScale.Crop,
+            placeholder = painterResource(R.drawable.ic_launcher_foreground),
+            error = painterResource(R.drawable.ic_launcher_foreground),
+        )
+
+        Column(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 4.dp)) {
+            Text(
+                point.name,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
-            Box(
-                Modifier.fillMaxWidth().height(45.dp).background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center,
+            Text(
+                "%.4f, %.4f".format(point.latitude, point.longitude),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
+
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            IconButton(
+                onClick = { onEdit(point) },
+                modifier = Modifier.size(36.dp),
+                colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
             ) {
-                Text(point.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, modifier = Modifier.padding(horizontal = 8.dp))
+                Icon(Icons.Default.Edit, "Edit", modifier = Modifier.size(18.dp))
             }
-        }
-        IconButton(onClick = { showMenu = true }, Modifier.align(Alignment.TopEnd).padding(4.dp)) {
-            Icon(Icons.Default.MoreVert, "Options")
-        }
-        DropdownMenu(showMenu, onDismissRequest = { showMenu = false }) {
-            DropdownMenuItem(text = { Text("Use location") }, onClick = { showMenu = false; onPointClick(point) })
-            DropdownMenuItem(text = { Text("Edit") }, onClick = { showMenu = false; onEdit(point) }, leadingIcon = { Icon(Icons.Default.Edit, null) })
-            DropdownMenuItem(text = { Text("Delete") }, onClick = { showMenu = false; onDelete(point) }, leadingIcon = { Icon(Icons.Default.Delete, null) })
+            IconButton(
+                onClick = { onDelete(point) },
+                modifier = Modifier.size(36.dp),
+                colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.error.copy(alpha = .7f)),
+            ) {
+                Icon(Icons.Default.Delete, "Delete", modifier = Modifier.size(18.dp))
+            }
         }
     }
 }
